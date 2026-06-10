@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Destination Impact Assessment Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #F7F8FA;
+  --surface: #FFFFFF;
+  --border: #E4E7EC;
+  --text-primary: #101828;
+  --text-secondary: #667085;
+  --text-muted: #98A2B3;
+  --blue: #185FA5;
+  --blue-light: #EBF3FC;
+  --blue-mid: #378ADD;
+  --green: #0F6E56;
+  --green-light: #E1F5EE;
+  --amber: #854F0B;
+  --amber-light: #FAEEDA;
+  --red: #A32D2D;
+  --red-light: #FCEBEB;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --shadow: 0 1px 3px rgba(16,24,40,.08), 0 1px 2px rgba(16,24,40,.04);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text-primary); font-size: 14px; }
+
+/* SIDEBAR */
+.layout { display: flex; min-height: 100vh; }
+.sidebar { width: 220px; background: var(--surface); border-right: 1px solid var(--border); padding: 24px 0; display: flex; flex-direction: column; position: fixed; top: 0; left: 0; height: 100vh; z-index: 100; }
+.sidebar-logo { padding: 0 20px 24px; border-bottom: 1px solid var(--border); margin-bottom: 16px; }
+.sidebar-logo .logo-text { font-size: 13px; font-weight: 600; color: var(--blue); letter-spacing: .04em; text-transform: uppercase; }
+.sidebar-logo .logo-sub { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+.nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 20px; cursor: pointer; font-size: 13px; font-weight: 500; color: var(--text-secondary); border-left: 3px solid transparent; transition: all .15s; }
+.nav-item:hover { background: var(--bg); color: var(--text-primary); }
+.nav-item.active { background: var(--blue-light); color: var(--blue); border-left-color: var(--blue); }
+.nav-icon { font-size: 16px; width: 18px; text-align: center; }
+.nav-section { font-size: 10px; font-weight: 600; color: var(--text-muted); letter-spacing: .08em; text-transform: uppercase; padding: 16px 20px 6px; }
+.sidebar-footer { margin-top: auto; padding: 16px 20px 0; border-top: 1px solid var(--border); }
+.sidebar-footer .version { font-size: 11px; color: var(--text-muted); }
+.sidebar-footer .phase { display: inline-block; background: var(--amber-light); color: var(--amber); font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 20px; margin-top: 4px; }
+
+/* MAIN */
+.main { margin-left: 220px; flex: 1; }
+.topbar { background: var(--surface); border-bottom: 1px solid var(--border); padding: 14px 28px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 50; }
+.topbar-title { font-size: 15px; font-weight: 600; }
+.topbar-meta { font-size: 12px; color: var(--text-secondary); }
+.baseline-badge { background: var(--blue-light); color: var(--blue); font-size: 11px; font-weight: 500; padding: 4px 12px; border-radius: 20px; }
+.content { padding: 24px 28px; }
+
+/* TAB BAR */
+.tab-bar { display: flex; gap: 2px; background: var(--border); border-radius: var(--radius-md); padding: 3px; display: inline-flex; margin-bottom: 24px; }
+.tab-btn { padding: 7px 20px; font-size: 13px; font-weight: 500; border: none; cursor: pointer; border-radius: 8px; background: transparent; color: var(--text-secondary); transition: all .15s; }
+.tab-btn.active { background: var(--surface); color: var(--text-primary); box-shadow: var(--shadow); }
+
+/* KPI CARDS */
+.kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 24px; }
+.kpi-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 16px; box-shadow: var(--shadow); }
+.kpi-label { font-size: 11px; font-weight: 500; color: var(--text-muted); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 6px; }
+.kpi-value { font-size: 24px; font-weight: 600; color: var(--text-primary); line-height: 1; }
+.kpi-delta { font-size: 12px; margin-top: 5px; display: flex; align-items: center; gap: 4px; }
+.kpi-delta.up { color: var(--green); }
+.kpi-delta.down { color: var(--red); }
+.kpi-delta.neutral { color: var(--text-muted); }
+
+/* CHARTS GRID */
+.chart-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+.chart-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 20px; box-shadow: var(--shadow); }
+.chart-card.full { grid-column: 1 / -1; }
+.card-label { font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: .07em; margin-bottom: 14px; }
+.chart-wrap { position: relative; width: 100%; }
+
+/* LEGEND */
+.legend { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 10px; }
+.legend-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--text-secondary); }
+.legend-dot { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+.legend-dash { width: 14px; height: 0; border-top: 2px solid; flex-shrink: 0; }
+
+/* TABLE */
+.table-toolbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; flex-wrap: wrap; gap: 10px; }
+.search-box { display: flex; align-items: center; gap: 8px; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 7px 12px; }
+.search-box input { border: none; background: transparent; outline: none; font-size: 13px; color: var(--text-primary); width: 200px; font-family: inherit; }
+.search-box input::placeholder { color: var(--text-muted); }
+.sort-group { display: flex; gap: 6px; flex-wrap: wrap; }
+.sort-pill { padding: 5px 12px; border: 1px solid var(--border); border-radius: 20px; font-size: 12px; font-weight: 500; cursor: pointer; background: var(--surface); color: var(--text-secondary); transition: all .15s; }
+.sort-pill.active { background: var(--blue); color: #fff; border-color: var(--blue); }
+.sort-pill:hover:not(.active) { border-color: var(--blue-mid); color: var(--blue); }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+thead th { padding: 10px 12px; text-align: left; font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: .05em; border-bottom: 1px solid var(--border); white-space: nowrap; }
+tbody td { padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+tbody tr:last-child td { border-bottom: none; }
+tbody tr:hover td { background: var(--bg); cursor: pointer; }
+.dest-name { font-weight: 500; color: var(--text-primary); }
+.dest-state { font-size: 11px; color: var(--text-muted); }
+
+/* BADGES */
+.pill { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+.pill.green { background: var(--green-light); color: var(--green); }
+.pill.amber { background: var(--amber-light); color: var(--amber); }
+.pill.red { background: var(--red-light); color: var(--red); }
+.pill.blue { background: var(--blue-light); color: var(--blue); }
+.pill.gray { background: #F1EFE8; color: #5F5E5A; }
+.track { font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 20px; }
+.track.promo { background: var(--blue-light); color: var(--blue); }
+.track.disp { background: var(--amber-light); color: var(--amber); }
+.chg { font-size: 12px; font-weight: 500; }
+.chg.pos { color: var(--green); }
+.chg.neg { color: var(--red); }
+
+/* DESTINATION VIEW */
+.dest-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 20px; flex-wrap: wrap; gap: 12px; }
+.dest-select-wrap { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+select { padding: 8px 14px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); font-family: inherit; font-size: 13px; color: var(--text-primary); outline: none; cursor: pointer; }
+select:focus { border-color: var(--blue-mid); }
+.mini-kpi-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px; }
+.mini-kpi { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 16px; box-shadow: var(--shadow); }
+.mini-kpi .mk-label { font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 4px; }
+.mini-kpi .mk-pre { font-size: 12px; color: var(--text-muted); margin-bottom: 4px; }
+.mini-kpi .mk-post { font-size: 22px; font-weight: 600; color: var(--text-primary); }
+.mini-kpi .mk-delta { font-size: 12px; font-weight: 500; margin-top: 4px; }
+.mk-delta.pos { color: var(--green); }
+.mk-delta.neg { color: var(--red); }
+
+/* CAPACITY GAUGE */
+.gauge-wrap { padding: 4px 0; }
+.gauge-title { font-size: 11px; color: var(--text-muted); margin-bottom: 3px; }
+.gauge-val { font-size: 20px; font-weight: 600; margin-bottom: 14px; }
+.gauge-bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.gauge-bar-label { font-size: 12px; color: var(--text-secondary); min-width: 90px; }
+.gauge-bar-bg { flex: 1; height: 10px; background: var(--bg); border-radius: 5px; overflow: hidden; border: 1px solid var(--border); }
+.gauge-bar-fill { height: 10px; border-radius: 5px; transition: width .4s ease; }
+.gauge-pct { font-size: 12px; font-weight: 500; min-width: 36px; text-align: right; }
+.track-note { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 14px; font-size: 12px; color: var(--text-secondary); margin-top: 14px; }
+.track-note strong { color: var(--text-primary); }
+
+/* RESPONSIVE */
+@media (max-width: 900px) {
+  .sidebar { display: none; }
+  .main { margin-left: 0; }
+  .chart-row { grid-template-columns: 1fr; }
+  .mini-kpi-row { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+<div class="layout">
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-text">Tourism Impact</div>
+    <div class="logo-sub">Ministry of Tourism · India</div>
+  </div>
+  <div class="nav-section">Dashboard</div>
+  <div class="nav-item active" onclick="switchTab('portfolio')">
+    <span class="nav-icon">◉</span> Portfolio overview
+  </div>
+  <div class="nav-item" onclick="switchTab('destination')" id="nav-dest">
+    <span class="nav-icon">◎</span> Destination deep-dive
+  </div>
+  <div class="nav-section" style="margin-top:8px">Filters</div>
+  <div style="padding: 6px 20px;">
+    <div style="font-size:11px;color:var(--text-muted);margin-bottom:6px">Track type</div>
+    <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;margin-bottom:4px">
+      <input type="checkbox" id="filter-promo" checked onchange="renderTable()"> Promotion
+    </label>
+    <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer">
+      <input type="checkbox" id="filter-disp" checked onchange="renderTable()"> Dispersal
+    </label>
+  </div>
+  <div style="padding: 12px 20px 0;">
+    <div style="font-size:11px;color:var(--text-muted);margin-bottom:6px">Capacity status</div>
+    <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;margin-bottom:4px">
+      <input type="checkbox" id="filter-green" checked onchange="renderTable()"> Within capacity
+    </label>
+    <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;margin-bottom:4px">
+      <input type="checkbox" id="filter-amber" checked onchange="renderTable()"> Approaching
+    </label>
+    <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer">
+      <input type="checkbox" id="filter-red" checked onchange="renderTable()"> Over capacity
+    </label>
+  </div>
+  <div class="sidebar-footer">
+    <div class="version">Draft v1.0 · June 2026</div>
+    <div class="phase">Illustrative data</div>
+  </div>
+</aside>
+
+<!-- MAIN -->
+<main class="main">
+  <div class="topbar">
+    <div>
+      <div class="topbar-title" id="topbar-title">Portfolio overview — all destinations</div>
+      <div class="topbar-meta">Domestic tourism · India</div>
+    </div>
+    <span class="baseline-badge">Baseline: Apr 2024–Mar 2025 &nbsp;|&nbsp; Post: Apr 2025–Mar 2026</span>
+  </div>
+
+  <div class="content">
+    <div class="tab-bar">
+      <button class="tab-btn active" onclick="switchTab('portfolio')">Portfolio overview</button>
+      <button class="tab-btn" onclick="switchTab('destination')">Individual destination</button>
+    </div>
+
+    <!-- PORTFOLIO TAB -->
+    <div id="tab-portfolio">
+      <div class="kpi-grid">
+        <div class="kpi-card">
+          <div class="kpi-label">Total footfall (post)</div>
+          <div class="kpi-value">4.2Cr</div>
+          <div class="kpi-delta up">↑ 18.4% vs baseline</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Avg spend / tourist</div>
+          <div class="kpi-value">₹6,840</div>
+          <div class="kpi-delta up">↑ 11.2% vs baseline</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Avg occupancy rate</div>
+          <div class="kpi-value">67.3%</div>
+          <div class="kpi-delta up">↑ 8.1 pp vs baseline</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Avg DES score</div>
+          <div class="kpi-value">3.8<span style="font-size:14px;font-weight:400;color:var(--text-muted)">/5</span></div>
+          <div class="kpi-delta up">↑ +0.4 vs baseline</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Within capacity</div>
+          <div class="kpi-value" style="color:var(--green)">31</div>
+          <div class="kpi-delta neutral">destinations</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Approaching threshold</div>
+          <div class="kpi-value" style="color:var(--amber)">12</div>
+          <div class="kpi-delta neutral">destinations</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Over capacity</div>
+          <div class="kpi-value" style="color:var(--red)">7</div>
+          <div class="kpi-delta neutral">destinations</div>
+        </div>
+      </div>
+
+      <div class="chart-row">
+        <div class="chart-card">
+          <div class="card-label">Footfall shift — iconic vs. alternatives</div>
+          <div class="chart-wrap" style="height:220px"><canvas id="shiftChart" role="img" aria-label="Grouped bar chart: footfall before and after for iconic vs alternative destinations"></canvas></div>
+          <div class="legend">
+            <div class="legend-item"><span class="legend-dot" style="background:#B5D4F4"></span>Baseline</div>
+            <div class="legend-item"><span class="legend-dot" style="background:#185FA5"></span>Post-intervention</div>
+          </div>
+        </div>
+        <div class="chart-card">
+          <div class="card-label">Capacity status distribution</div>
+          <div class="chart-wrap" style="height:220px"><canvas id="capPieChart" role="img" aria-label="Donut chart: capacity status of 50 destinations"></canvas></div>
+          <div class="legend">
+            <div class="legend-item"><span class="legend-dot" style="background:#1D9E75"></span>Within (31)</div>
+            <div class="legend-item"><span class="legend-dot" style="background:#EF9F27"></span>Approaching (12)</div>
+            <div class="legend-item"><span class="legend-dot" style="background:#E24B4A"></span>Over capacity (7)</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="chart-card full" style="margin-bottom:20px">
+        <div class="table-toolbar">
+          <div class="card-label" style="margin-bottom:0">All destinations</div>
+          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+            <div class="search-box">
+              <span style="color:var(--text-muted);font-size:13px">⌕</span>
+              <input id="searchInput" placeholder="Search destination or state…" oninput="renderTable()">
+            </div>
+            <div class="sort-group">
+              <span style="font-size:11px;color:var(--text-muted);align-self:center">Sort:</span>
+              <button class="sort-pill active" id="sort-footfall" onclick="setSort('footfall')">Footfall</button>
+              <button class="sort-pill" id="sort-des" onclick="setSort('des')">DES</button>
+              <button class="sort-pill" id="sort-occ" onclick="setSort('occ')">Occupancy</button>
+              <button class="sort-pill" id="sort-cap" onclick="setSort('cap')">Capacity</button>
+            </div>
+          </div>
+        </div>
+        <div style="overflow-x:auto">
+          <table>
+            <thead><tr>
+              <th>Destination</th>
+              <th>Track</th>
+              <th>Footfall (post)</th>
+              <th>Footfall change</th>
+              <th>Avg spend</th>
+              <th>Occupancy</th>
+              <th>DES</th>
+              <th>Capacity status</th>
+            </tr></thead>
+            <tbody id="destBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- DESTINATION TAB -->
+    <div id="tab-destination" style="display:none">
+      <div class="dest-header">
+        <div class="dest-select-wrap">
+          <label style="font-size:12px;color:var(--text-muted);font-weight:500">Select destination</label>
+          <select id="destSelect" onchange="renderDestView()"></select>
+        </div>
+      </div>
+      <div class="mini-kpi-row" id="miniKpis"></div>
+      <div class="chart-row">
+        <div class="chart-card">
+          <div class="card-label">DES — qualitative radar (pre vs. post)</div>
+          <div class="chart-wrap" style="height:230px"><canvas id="radarChart" role="img" aria-label="Radar chart of 6 qualitative dimensions before and after intervention"></canvas></div>
+          <div class="legend" id="radarLegend">
+            <div class="legend-item"><span class="legend-dash" style="border-color:#B5D4F4;border-top-style:dashed"></span>Baseline</div>
+            <div class="legend-item"><span class="legend-dash" style="border-color:#185FA5"></span>Post</div>
+          </div>
+        </div>
+        <div class="chart-card">
+          <div class="card-label">Carrying capacity gauge</div>
+          <div class="gauge-wrap" id="capGauge"></div>
+        </div>
+      </div>
+      <div class="chart-card" style="margin-bottom:20px">
+        <div class="card-label">Monthly trend — footfall · occupancy · avg spend</div>
+        <div class="chart-wrap" style="height:200px"><canvas id="trendChart" role="img" aria-label="Line chart of monthly trends across baseline and post-intervention periods"></canvas></div>
+        <div class="legend">
+          <div class="legend-item"><span class="legend-dash" style="border-color:#185FA5"></span>Footfall</div>
+          <div class="legend-item"><span class="legend-dash" style="border-color:#1D9E75;border-top-style:dashed"></span>Occupancy %</div>
+          <div class="legend-item"><span class="legend-dash" style="border-color:#BA7517;border-top-style:dotted"></span>Avg spend</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</main>
+</div>
+
+<script>
+const DESTS = [
+  {name:"Chopta",state:"Uttarakhand",track:"promo",footfallPre:38000,footfallPost:71000,spendPre:4200,spendPost:5100,occPre:48,occPost:68,capacity:90000,desPre:[3.2,3.0,3.5,2.8,3.6,3.1],desPost:[3.9,3.8,4.1,3.4,4.2,3.8]},
+  {name:"Spiti Valley",state:"Himachal Pradesh",track:"promo",footfallPre:22000,footfallPost:41000,spendPre:5800,spendPost:7200,occPre:42,occPost:64,capacity:55000,desPre:[3.4,2.9,3.2,2.5,3.8,3.3],desPost:[4.0,3.5,3.9,3.1,4.3,3.9]},
+  {name:"Hampi",state:"Karnataka",track:"promo",footfallPre:95000,footfallPost:148000,spendPre:3900,spendPost:4800,occPre:55,occPost:74,capacity:200000,desPre:[3.6,3.4,3.8,3.2,3.9,3.5],desPost:[4.1,3.9,4.2,3.7,4.3,4.0]},
+  {name:"Coorg",state:"Karnataka",track:"promo",footfallPre:142000,footfallPost:198000,spendPre:7200,spendPost:8900,occPre:62,occPost:79,capacity:250000,desPre:[3.8,3.7,4.1,3.5,4.0,3.8],desPost:[4.2,4.0,4.4,3.8,4.4,4.1]},
+  {name:"Orchha",state:"Madhya Pradesh",track:"promo",footfallPre:68000,footfallPost:112000,spendPre:3100,spendPost:4200,occPre:40,occPost:62,capacity:180000,desPre:[3.1,2.8,3.4,2.9,3.5,3.2],desPost:[3.8,3.5,3.9,3.4,4.0,3.7]},
+  {name:"Mandu",state:"Madhya Pradesh",track:"promo",footfallPre:31000,footfallPost:58000,spendPre:2800,spendPost:3700,occPre:35,occPost:54,capacity:120000,desPre:[3.0,2.7,3.2,2.6,3.4,3.1],desPost:[3.7,3.4,3.8,3.2,3.9,3.6]},
+  {name:"Pattadakal",state:"Karnataka",track:"promo",footfallPre:18000,footfallPost:38000,spendPre:2600,spendPost:3400,occPre:28,occPost:48,capacity:90000,desPre:[3.2,3.0,3.1,2.5,3.3,3.1],desPost:[3.9,3.6,3.8,3.1,4.0,3.8]},
+  {name:"Diu",state:"UT Diu",track:"promo",footfallPre:88000,footfallPost:135000,spendPre:5100,spendPost:6400,occPre:54,occPost:72,capacity:200000,desPre:[3.5,3.4,3.9,3.3,3.8,3.6],desPost:[4.0,3.9,4.2,3.7,4.1,4.0]},
+  {name:"Munsiyari",state:"Uttarakhand",track:"promo",footfallPre:26000,footfallPost:52000,spendPre:4600,spendPost:5800,occPre:44,occPost:66,capacity:80000,desPre:[3.3,3.1,3.4,2.8,3.7,3.3],desPost:[4.0,3.7,4.0,3.3,4.2,3.9]},
+  {name:"Ziro",state:"Arunachal Pradesh",track:"promo",footfallPre:12000,footfallPost:28000,spendPre:5500,spendPost:7100,occPre:36,occPost:58,capacity:50000,desPre:[3.6,3.2,4.0,2.7,4.1,3.7],desPost:[4.2,3.8,4.4,3.3,4.5,4.1]},
+  {name:"Tawang",state:"Arunachal Pradesh",track:"promo",footfallPre:34000,footfallPost:62000,spendPre:6200,spendPost:7800,occPre:48,occPost:70,capacity:85000,desPre:[3.7,3.4,4.1,2.9,4.2,3.8],desPost:[4.3,3.9,4.5,3.5,4.5,4.2]},
+  {name:"Majuli",state:"Assam",track:"promo",footfallPre:21000,footfallPost:44000,spendPre:3800,spendPost:5200,occPre:39,occPost:61,capacity:70000,desPre:[3.4,3.0,4.2,2.6,4.0,3.5],desPost:[4.0,3.7,4.5,3.2,4.3,4.0]},
+  {name:"Chettinad",state:"Tamil Nadu",track:"promo",footfallPre:48000,footfallPost:84000,spendPre:5400,spendPost:6900,occPre:52,occPost:71,capacity:150000,desPre:[3.8,3.5,4.5,3.4,4.1,3.9],desPost:[4.3,4.0,4.7,3.8,4.4,4.2]},
+  {name:"Khajjiar",state:"Himachal Pradesh",track:"promo",footfallPre:62000,footfallPost:98000,spendPre:3600,spendPost:4500,occPre:50,occPost:68,capacity:150000,desPre:[3.5,3.3,3.6,3.0,3.8,3.5],desPost:[4.0,3.8,4.0,3.5,4.1,3.9]},
+  {name:"Gokarna",state:"Karnataka",track:"promo",footfallPre:78000,footfallPost:118000,spendPre:4800,spendPost:6100,occPre:57,occPost:74,capacity:180000,desPre:[3.6,3.3,3.9,3.1,3.8,3.6],desPost:[4.1,3.8,4.2,3.6,4.1,4.0]},
+  {name:"Kaas Plateau",state:"Maharashtra",track:"promo",footfallPre:44000,footfallPost:72000,spendPre:2900,spendPost:3800,occPre:38,occPost:56,capacity:100000,desPre:[3.3,3.0,3.3,2.6,3.5,3.2],desPost:[3.9,3.6,3.7,3.1,3.9,3.7]},
+  {name:"Hemis",state:"Ladakh",track:"promo",footfallPre:19000,footfallPost:38000,spendPre:8200,spendPost:10100,occPre:41,occPost:62,capacity:60000,desPre:[3.7,3.4,3.8,2.8,4.2,3.8],desPost:[4.3,3.9,4.2,3.4,4.5,4.2]},
+  {name:"Lonar",state:"Maharashtra",track:"promo",footfallPre:14000,footfallPost:31000,spendPre:2400,spendPost:3200,occPre:30,occPost:48,capacity:70000,desPre:[3.0,2.8,3.0,2.4,3.3,2.9],desPost:[3.7,3.4,3.6,2.9,3.8,3.5]},
+  {name:"Gandikota",state:"Andhra Pradesh",track:"promo",footfallPre:28000,footfallPost:56000,spendPre:2700,spendPost:3600,occPre:34,occPost:54,capacity:100000,desPre:[3.1,2.9,3.4,2.7,3.5,3.2],desPost:[3.8,3.6,3.9,3.2,3.9,3.7]},
+  {name:"Lambasingi",state:"Andhra Pradesh",track:"promo",footfallPre:18000,footfallPost:38000,spendPre:3200,spendPost:4200,occPre:36,occPost:58,capacity:65000,desPre:[3.2,3.0,3.5,2.6,3.6,3.2],desPost:[3.9,3.7,4.0,3.2,4.0,3.8]},
+  {name:"Jawai",state:"Rajasthan",track:"promo",footfallPre:16000,footfallPost:34000,spendPre:9500,spendPost:12000,occPre:44,occPost:66,capacity:55000,desPre:[3.9,3.6,3.8,3.2,4.3,4.0],desPost:[4.4,4.0,4.2,3.7,4.6,4.3]},
+  {name:"Bundi",state:"Rajasthan",track:"promo",footfallPre:42000,footfallPost:74000,spendPre:4100,spendPost:5300,occPre:46,occPost:65,capacity:130000,desPre:[3.5,3.2,3.8,3.1,3.9,3.6],desPost:[4.0,3.8,4.2,3.6,4.2,3.9]},
+  {name:"Murudeshwar",state:"Karnataka",track:"promo",footfallPre:92000,footfallPost:138000,spendPre:3700,spendPost:4700,occPre:58,occPost:75,capacity:220000,desPre:[3.6,3.3,3.9,3.2,3.8,3.6],desPost:[4.1,3.8,4.2,3.6,4.0,3.9]},
+  {name:"Lansdowne",state:"Uttarakhand",track:"promo",footfallPre:52000,footfallPost:88000,spendPre:3500,spendPost:4400,occPre:48,occPost:67,capacity:140000,desPre:[3.4,3.2,3.5,2.9,3.7,3.4],desPost:[4.0,3.8,3.9,3.4,4.1,3.8]},
+  {name:"Daringbadi",state:"Odisha",track:"promo",footfallPre:24000,footfallPost:48000,spendPre:3000,spendPost:4000,occPre:38,occPost:60,capacity:80000,desPre:[3.1,2.9,3.6,2.7,3.7,3.3],desPost:[3.8,3.6,4.1,3.2,4.1,3.8]},
+  {name:"Shimla",state:"Himachal Pradesh",track:"disp",footfallPre:980000,footfallPost:810000,spendPre:8100,spendPost:8600,occPre:91,occPost:78,capacity:850000,desPre:[3.2,2.8,3.6,3.5,3.4,3.1],desPost:[3.7,3.3,3.9,3.8,3.8,3.6]},
+  {name:"Manali",state:"Himachal Pradesh",track:"disp",footfallPre:920000,footfallPost:750000,spendPre:7800,spendPost:8200,occPre:94,occPost:80,capacity:800000,desPre:[3.0,2.6,3.4,3.4,3.3,2.9],desPost:[3.6,3.2,3.8,3.7,3.7,3.5]},
+  {name:"Goa (North)",state:"Goa",track:"disp",footfallPre:1420000,footfallPost:1180000,spendPre:11200,spendPost:11800,occPre:92,occPost:79,capacity:1200000,desPre:[3.4,2.9,4.2,4.0,3.6,3.3],desPost:[3.9,3.5,4.5,4.2,4.0,3.8]},
+  {name:"Mussoorie",state:"Uttarakhand",track:"disp",footfallPre:740000,footfallPost:620000,spendPre:6800,spendPost:7200,occPre:89,occPost:76,capacity:650000,desPre:[3.1,2.7,3.5,3.3,3.4,3.0],desPost:[3.6,3.2,3.8,3.6,3.8,3.5]},
+  {name:"Ooty",state:"Tamil Nadu",track:"disp",footfallPre:860000,footfallPost:710000,spendPre:5900,spendPost:6300,occPre:90,occPost:77,capacity:750000,desPre:[3.2,2.8,3.8,3.4,3.5,3.2],desPost:[3.7,3.4,4.1,3.7,3.9,3.6]},
+  {name:"Nainital",state:"Uttarakhand",track:"disp",footfallPre:680000,footfallPost:570000,spendPre:5400,spendPost:5800,occPre:88,occPost:75,capacity:600000,desPre:[3.0,2.6,3.4,3.2,3.3,2.9],desPost:[3.5,3.1,3.7,3.5,3.7,3.4]},
+  {name:"Darjeeling",state:"West Bengal",track:"disp",footfallPre:520000,footfallPost:430000,spendPre:6200,spendPost:6600,occPre:87,occPost:74,capacity:450000,desPre:[3.3,2.9,4.0,3.3,3.6,3.3],desPost:[3.8,3.5,4.3,3.6,4.0,3.7]},
+  {name:"Mahabaleshwar",state:"Maharashtra",track:"disp",footfallPre:610000,footfallPost:510000,spendPre:6500,spendPost:6900,occPre:88,occPost:75,capacity:530000,desPre:[3.1,2.7,3.6,3.4,3.4,3.1],desPost:[3.6,3.3,3.9,3.7,3.8,3.5]},
+  {name:"Kodaikanal",state:"Tamil Nadu",track:"disp",footfallPre:480000,footfallPost:400000,spendPre:5600,spendPost:5900,occPre:86,occPost:73,capacity:420000,desPre:[3.2,2.8,3.7,3.3,3.5,3.2],desPost:[3.7,3.4,4.0,3.6,3.9,3.6]},
+  {name:"Munnar",state:"Kerala",track:"disp",footfallPre:780000,footfallPost:650000,spendPre:7200,spendPost:7700,occPre:91,occPost:78,capacity:700000,desPre:[3.3,3.0,4.1,3.5,3.7,3.3],desPost:[3.8,3.5,4.4,3.8,4.1,3.8]},
+  {name:"Alleppey",state:"Kerala",track:"disp",footfallPre:620000,footfallPost:520000,spendPre:8800,spendPost:9300,occPre:89,occPost:76,capacity:550000,desPre:[3.4,3.1,4.3,3.6,3.9,3.5],desPost:[3.9,3.6,4.5,3.9,4.2,3.9]},
+  {name:"Rishikesh",state:"Uttarakhand",track:"disp",footfallPre:940000,footfallPost:790000,spendPre:6100,spendPost:6500,occPre:92,occPost:79,capacity:820000,desPre:[3.2,2.8,3.7,3.4,3.6,3.2],desPost:[3.7,3.4,4.0,3.7,4.0,3.6]},
+  {name:"Varanasi",state:"Uttar Pradesh",track:"disp",footfallPre:1180000,footfallPost:980000,spendPre:5200,spendPost:5700,occPre:93,occPost:81,capacity:1050000,desPre:[3.0,2.5,3.9,3.6,3.5,3.1],desPost:[3.5,3.1,4.2,3.9,3.9,3.6]},
+  {name:"Agra",state:"Uttar Pradesh",track:"disp",footfallPre:2100000,footfallPost:1780000,spendPre:6800,spendPost:7300,occPre:91,occPost:79,capacity:1900000,desPre:[2.9,2.4,3.6,3.5,3.2,2.8],desPost:[3.4,3.0,3.9,3.8,3.6,3.3]},
+  {name:"Jaipur",state:"Rajasthan",track:"disp",footfallPre:1640000,footfallPost:1380000,spendPre:7900,spendPost:8500,occPre:90,occPost:78,capacity:1500000,desPre:[3.2,2.8,4.0,3.8,3.5,3.2],desPost:[3.7,3.4,4.3,4.1,3.9,3.7]},
+  {name:"Pushkar",state:"Rajasthan",track:"disp",footfallPre:420000,footfallPost:350000,spendPre:4900,spendPost:5200,occPre:87,occPost:74,capacity:370000,desPre:[3.1,2.7,3.8,3.6,3.4,3.2],desPost:[3.6,3.2,4.1,3.9,3.8,3.6]},
+  {name:"Shirdi",state:"Maharashtra",track:"disp",footfallPre:1280000,footfallPost:1080000,spendPre:4200,spendPost:4600,occPre:92,occPost:80,capacity:1100000,desPre:[3.3,3.0,3.6,3.1,3.8,3.4],desPost:[3.8,3.5,3.9,3.4,4.1,3.8]},
+  {name:"Tirupati",state:"Andhra Pradesh",track:"disp",footfallPre:1580000,footfallPost:1340000,spendPre:3800,spendPost:4100,occPre:94,occPost:82,capacity:1400000,desPre:[3.1,2.7,3.5,2.9,3.6,3.2],desPost:[3.6,3.2,3.8,3.2,4.0,3.6]},
+  {name:"Puri",state:"Odisha",track:"disp",footfallPre:920000,footfallPost:770000,spendPre:4600,spendPost:5000,occPre:88,occPost:75,capacity:800000,desPre:[3.0,2.6,3.8,3.2,3.5,3.1],desPost:[3.5,3.2,4.1,3.5,3.9,3.5]},
+  {name:"Haridwar",state:"Uttarakhand",track:"disp",footfallPre:1060000,footfallPost:890000,spendPre:3900,spendPost:4300,occPre:91,occPost:79,capacity:940000,desPre:[3.1,2.7,3.6,3.0,3.6,3.2],desPost:[3.6,3.3,3.9,3.3,4.0,3.6]},
+  {name:"Vrindavan",state:"Uttar Pradesh",track:"disp",footfallPre:840000,footfallPost:700000,spendPre:3600,spendPost:3900,occPre:89,occPost:77,capacity:750000,desPre:[3.0,2.5,3.7,2.9,3.5,3.1],desPost:[3.5,3.1,4.0,3.2,3.9,3.5]},
+  {name:"Udaipur",state:"Rajasthan",track:"disp",footfallPre:720000,footfallPost:610000,spendPre:9200,spendPost:9800,occPre:90,occPost:78,capacity:650000,desPre:[3.5,3.2,4.0,3.9,3.8,3.5],desPost:[4.0,3.7,4.3,4.2,4.2,3.9]},
+];
+
+function avgDES(d,w){const a=w==='pre'?d.desPre:d.desPost;return +(a.reduce((s,v)=>s+v,0)/a.length).toFixed(2)}
+function capStatus(d){const r=d.footfallPost/d.capacity;return r<0.7?'green':r<0.9?'amber':'red'}
+function capLabel(d){const r=d.footfallPost/d.capacity;return r<0.7?'Within capacity':r<0.9?'Approaching threshold':'Over capacity'}
+function fmtNum(n){if(n>=10000000)return (n/10000000).toFixed(1)+'Cr';if(n>=100000)return (n/100000).toFixed(1)+'L';if(n>=1000)return (n/1000).toFixed(0)+'K';return n}
+function chgPct(pre,post){return (((post-pre)/pre)*100).toFixed(1)}
+
+let sortKey='footfall';
+let radarChart=null,trendChart=null;
+
+function setSort(k){
+  sortKey=k;
+  document.querySelectorAll('.sort-pill').forEach(b=>b.classList.remove('active'));
+  document.getElementById('sort-'+k).classList.add('active');
+  renderTable();
+}
+
+function switchTab(t){
+  document.getElementById('tab-portfolio').style.display=t==='portfolio'?'':'none';
+  document.getElementById('tab-destination').style.display=t==='destination'?'':'none';
+  document.querySelectorAll('.tab-btn').forEach((b,i)=>{
+    b.classList.toggle('active',(t==='portfolio'&&i===0)||(t==='destination'&&i===1));
+  });
+  document.querySelectorAll('.nav-item').forEach((b,i)=>{
+    b.classList.toggle('active',(t==='portfolio'&&i===0)||(t==='destination'&&i===1));
+  });
+  document.getElementById('topbar-title').textContent = t==='portfolio'
+    ? 'Portfolio overview — all destinations'
+    : 'Individual destination deep-dive';
+  if(t==='destination') renderDestView();
+}
+
+function renderTable(){
+  const q=document.getElementById('searchInput').value.toLowerCase();
+  const fp=document.getElementById('filter-promo').checked;
+  const fd=document.getElementById('filter-disp').checked;
+  const fg=document.getElementById('filter-green').checked;
+  const fa=document.getElementById('filter-amber').checked;
+  const fr=document.getElementById('filter-red').checked;
+  let list=[...DESTS].filter(d=>{
+    if(!d.name.toLowerCase().includes(q)&&!d.state.toLowerCase().includes(q))return false;
+    if(d.track==='promo'&&!fp)return false;
+    if(d.track==='disp'&&!fd)return false;
+    const cs=capStatus(d);
+    if(cs==='green'&&!fg)return false;
+    if(cs==='amber'&&!fa)return false;
+    if(cs==='red'&&!fr)return false;
+    return true;
+  });
+  if(sortKey==='footfall')list.sort((a,b)=>Math.abs(b.footfallPost-b.footfallPre)-Math.abs(a.footfallPost-a.footfallPre));
+  else if(sortKey==='des')list.sort((a,b)=>avgDES(b,'post')-avgDES(a,'post'));
+  else if(sortKey==='occ')list.sort((a,b)=>b.occPost-a.occPost);
+  else if(sortKey==='cap')list.sort((a,b)=>{const o={green:0,amber:1,red:2};return o[capStatus(b)]-o[capStatus(a)]});
+  const tb=document.getElementById('destBody');
+  tb.innerHTML=list.map(d=>{
+    const chg=chgPct(d.footfallPre,d.footfallPost);
+    const pos=d.track==='promo'?+chg>0:+chg<0;
+    const des=avgDES(d,'post');
+    const st=capStatus(d);
+    const lbl=capLabel(d);
+    const idx=DESTS.indexOf(d);
+    return `<tr onclick="goDestination(${idx})">
+      <td><div class="dest-name">${d.name}</div><div class="dest-state">${d.state}</div></td>
+      <td><span class="track ${d.track}">${d.track==='promo'?'Promotion':'Dispersal'}</span></td>
+      <td>${fmtNum(d.footfallPost)}</td>
+      <td><span class="chg ${pos?'pos':'neg'}">${+chg>0?'↑':'↓'} ${Math.abs(chg)}%</span></td>
+      <td>₹${d.spendPost.toLocaleString()}</td>
+      <td>${d.occPost}%</td>
+      <td>${des}</td>
+      <td><span class="pill ${st}">${lbl}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+function goDestination(idx){
+  document.getElementById('destSelect').value=idx;
+  switchTab('destination');
+}
+
+function buildShiftChart(){
+  const promo=DESTS.filter(d=>d.track==='promo');
+  const disp=DESTS.filter(d=>d.track==='disp');
+  const s=arr=>arr.reduce((t,d)=>t+d.footfallPre,0);
+  const sp=arr=>arr.reduce((t,d)=>t+d.footfallPost,0);
+  new Chart(document.getElementById('shiftChart'),{
+    type:'bar',
+    data:{
+      labels:['Iconic / overcrowded','Emerging alternatives'],
+      datasets:[
+        {label:'Baseline',data:[Math.round(s(disp)/100000),Math.round(s(promo)/100000)],backgroundColor:'#B5D4F4',borderRadius:4},
+        {label:'Post-intervention',data:[Math.round(sp(disp)/100000),Math.round(sp(promo)/100000)],backgroundColor:'#185FA5',borderRadius:4}
+      ]
+    },
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:v=>v+'L',font:{size:11}}},x:{ticks:{font:{size:11}}}}}
+  });
+}
+
+function buildCapPie(){
+  new Chart(document.getElementById('capPieChart'),{
+    type:'doughnut',
+    data:{labels:['Within','Approaching','Over capacity'],datasets:[{data:[31,12,7],backgroundColor:['#1D9E75','#EF9F27','#E24B4A'],borderWidth:3,borderColor:'#fff'}]},
+    options:{responsive:true,maintainAspectRatio:false,cutout:'62%',plugins:{legend:{display:false}}}
+  });
+}
+
+function renderDestView(){
+  const idx=+document.getElementById('destSelect').value;
+  const d=DESTS[idx];
+  const dims=['Safety','Cleanliness','Food','Shopping','Hospitality','Overall'];
+
+  document.getElementById('miniKpis').innerHTML=[
+    {label:'Footfall',pre:fmtNum(d.footfallPre),post:fmtNum(d.footfallPost),raw:chgPct(d.footfallPre,d.footfallPost),pos:d.track==='promo'?+chgPct(d.footfallPre,d.footfallPost)>0:+chgPct(d.footfallPre,d.footfallPost)<0,unit:'%'},
+    {label:'Avg spend',pre:'₹'+d.spendPre.toLocaleString(),post:'₹'+d.spendPost.toLocaleString(),raw:chgPct(d.spendPre,d.spendPost),pos:true,unit:'%'},
+    {label:'Occupancy',pre:d.occPre+'%',post:d.occPost+'%',raw:(d.occPost-d.occPre).toFixed(1),pos:d.track==='promo'?d.occPost>d.occPre:d.occPost<d.occPre,unit:' pp'},
+  ].map(k=>`<div class="mini-kpi">
+    <div class="mk-label">${k.label}</div>
+    <div class="mk-pre">Baseline: ${k.pre}</div>
+    <div class="mk-post">${k.post}</div>
+    <div class="mk-delta ${k.pos?'pos':'neg'}">${+k.raw>0?'↑':'↓'} ${Math.abs(k.raw)}${k.unit}</div>
+  </div>`).join('');
+
+  if(radarChart)radarChart.destroy();
+  radarChart=new Chart(document.getElementById('radarChart'),{
+    type:'radar',
+    data:{labels:dims,datasets:[
+      {label:'Baseline',data:d.desPre,borderColor:'#B5D4F4',backgroundColor:'rgba(181,212,244,.15)',pointBackgroundColor:'#B5D4F4',borderDash:[4,2]},
+      {label:'Post',data:d.desPost,borderColor:'#185FA5',backgroundColor:'rgba(24,95,165,.12)',pointBackgroundColor:'#185FA5'}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,scales:{r:{min:1,max:5,ticks:{stepSize:1,font:{size:10}},pointLabels:{font:{size:11}}}},plugins:{legend:{display:false}}}
+  });
+
+  const pct=Math.min(Math.round((d.footfallPost/d.capacity)*100),100);
+  const st=capStatus(d);
+  const barColor=st==='green'?'#1D9E75':st==='amber'?'#EF9F27':'#E24B4A';
+  const statusDot=st==='green'?'🟢':st==='amber'?'🟡':'🔴';
+  document.getElementById('capGauge').innerHTML=`
+    <div style="margin-bottom:14px">
+      <div class="gauge-title">Fixed capacity benchmark</div>
+      <div class="gauge-val">${fmtNum(d.capacity)}</div>
+    </div>
+    <div class="gauge-bar-row">
+      <div class="gauge-bar-label" style="font-size:12px;color:var(--text-secondary)">Current load</div>
+      <div class="gauge-bar-bg"><div class="gauge-bar-fill" style="width:${pct}%;background:${barColor}"></div></div>
+      <div class="gauge-pct" style="color:${barColor}">${pct}%</div>
+    </div>
+    <div style="margin:14px 0 6px;font-size:11px;color:var(--text-muted);font-weight:600;text-transform:uppercase;letter-spacing:.06em">Status</div>
+    <span class="pill ${st}" style="font-size:13px;padding:5px 14px">${statusDot} ${capLabel(d)}</span>
+    <div style="margin-top:8px;font-size:12px;color:var(--text-muted)">Actual: ${fmtNum(d.footfallPost)} &nbsp;/&nbsp; Capacity: ${fmtNum(d.capacity)}</div>
+    <div class="track-note" style="margin-top:14px">
+      Track: <strong>${d.track==='promo'?'Promotion':'Dispersal'}</strong> —
+      ${d.track==='promo'?'Footfall growth is the desired outcome within capacity headroom.':'Footfall reduction is the desired and positive outcome for this destination.'}
+    </div>`;
+
+  const months=['Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec','Jan','Feb','Mar'];
+  const trend=months.map((_,i)=>{
+    const t=i/23;
+    const base=i<12?1:1+(t-12/23)*0.8;
+    const n=()=>(Math.random()-.5)*.08;
+    return {
+      footfall:Math.round(d.footfallPre+(d.footfallPost-d.footfallPre)*(i<12?i/12*.3:(i-12)/11)*base+n()*d.footfallPre),
+      occ:+(d.occPre+(d.occPost-d.occPre)*(i<12?i/12*.3:(i-12)/11)*base+n()*20).toFixed(1),
+      spend:Math.round(d.spendPre+(d.spendPost-d.spendPre)*(i<12?i/12*.3:(i-12)/11)*base)
+    };
+  });
+  if(trendChart)trendChart.destroy();
+  trendChart=new Chart(document.getElementById('trendChart'),{
+    type:'line',
+    data:{labels:months,datasets:[
+      {label:'Footfall',data:trend.map(t=>t.footfall),borderColor:'#185FA5',backgroundColor:'transparent',yAxisID:'y',tension:.3,pointRadius:2},
+      {label:'Occupancy %',data:trend.map(t=>t.occ),borderColor:'#1D9E75',backgroundColor:'transparent',yAxisID:'y2',tension:.3,borderDash:[4,2],pointRadius:2},
+      {label:'Avg spend',data:trend.map(t=>t.spend),borderColor:'#BA7517',backgroundColor:'transparent',yAxisID:'y3',tension:.3,borderDash:[2,2],pointRadius:2}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{ticks:{font:{size:10},maxRotation:45,autoSkip:false}},
+        y:{position:'left',ticks:{callback:v=>fmtNum(v),font:{size:10}}},
+        y2:{position:'right',grid:{drawOnChartArea:false},ticks:{callback:v=>v+'%',font:{size:10}}},
+        y3:{display:false}
+      }
+    }
+  });
+}
+
+function init(){
+  const sel=document.getElementById('destSelect');
+  DESTS.forEach((d,i)=>{
+    const o=document.createElement('option');
+    o.value=i;
+    o.textContent=`${d.name} (${d.state}) — ${d.track==='promo'?'Promotion':'Dispersal'}`;
+    sel.appendChild(o);
+  });
+  renderTable();
+  buildShiftChart();
+  buildCapPie();
+  renderDestView();
+}
+init();
+</script>
+</body>
+</html>
